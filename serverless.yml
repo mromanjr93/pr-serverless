@@ -1,0 +1,138 @@
+service: PRNotificationService
+
+plugins:  
+  - serverless-reqvalidator-plugin
+  - serverless-aws-documentation
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: dev
+  apiKeys:
+    - ${opt:stage, self:provider.stage}-app-key
+
+custom:
+  documentation:
+    api:
+      info:
+        version: '1.0.0'
+        title: Notification API
+        description: API To Manage Push Notificaton Service
+      tags:
+        -
+          name: Devices
+          description: Devices Management
+  models:
+    - name: MessageResponse
+      contentType: "application/json"
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+    - name: AddDeviceRequest
+      contentType: "application/json"
+      schema:
+        required: 
+          - token
+          - os
+          - newslleters
+        properties:
+          token:
+            type: string
+          os:
+            type: string
+          newsletters:
+            type: array
+            items:
+              type: string
+    - name: 400JsonResponse
+      contentType: "application/json"
+      schema:
+        type: object
+        properties:
+          message:
+            type: string
+          statusCode:
+            type: number
+  commonModelSchemaFragments:
+    MethodResponse400Json:
+      statusCode: '400'
+      responseModels:
+        "application/json": 400JsonResponse
+
+functions:  
+  sendNotification:
+    handler: api/notification.send    
+    events:
+      - http:
+          path: notification/send
+          private: true
+          method: post
+          cors: true
+  addDevice:
+    handler: api/devices.add    
+    events:
+      - http:
+          documentation:
+            summary: "Register new Device"
+            description: "Registers new device with newslleters"
+            tags:
+              - Devices          
+          path: devices
+          private: true
+          method: post
+          reqValidatorName: onlyBody
+          cors: true
+          methodResponses:
+              - statusCode: '200'
+                responseModels:
+                  "application/json": MessageResponse
+              - ${self:custom.commonModelSchemaFragments.MethodResponse400Json}
+
+  listDevices:
+    handler: api/devices.list    
+    events:
+      - http:
+          path: devices
+          private: true
+          method: get
+          cors: true
+
+  getDevice:
+    handler: api/devices.get    
+    events:
+      - http:
+          path: devices/{id}
+          private: true
+          method: get
+          cors: true
+
+  updateDevice:
+    handler: api/devices.update    
+    events:
+      - http:
+          path: devices/{id}
+          private: true
+          method: put
+          cors: true
+
+  deleteDevice:
+    handler: api/devices.delete
+    events:
+      - http:
+          path: devices/{id}
+          private: true
+          method: delete
+          cors: true  
+
+resources:
+  Resources:
+    onlyBody:  
+      Type: "AWS::ApiGateway::RequestValidator"
+      Properties:
+        Name: 'only-body'
+        RestApiId: 
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: true
+        ValidateRequestParameters: false
